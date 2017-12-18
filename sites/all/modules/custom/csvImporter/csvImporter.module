@@ -1,0 +1,374 @@
+<?php
+
+
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  Hooks and Setup Functions
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+
+  //-------------------------------------------------------------------------------------------|
+  //  Implementation of hook_menu, this provides a front-end for the importer
+  //-------------------------------------------------------------------------------------------|
+    function csvImporter_menu() {
+      $items['csvImporter'] = array(
+        'title' => 'Import Data from CSV File',
+        'description' => 'Import content from a <abbr title="Comma Separated Values">XLXS</abbr> file.',
+        'access callback' => 'user_access',
+        'access arguments' => array('access content'),
+        'page callback' => 'csvImporter_pagecallback',
+        'type' => MENU_NORMAL_ITEM,
+      );
+        $items['graph'] = array(
+            'title' => 'Plot Graph from Higcharts',
+            'access callback' => 'user_access',
+            'access arguments' => array('access content'),
+            'page callback' => 'csvImporter_plotgraph',
+            'type' => MENU_NORMAL_ITEM,
+        );
+      return $items ;
+    }
+  //-------------------------------------------------------------------------------------------|
+  //  End hook_menu
+  //-------------------------------------------------------------------------------------------|
+  
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  End hooks and setup functions
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+
+//-------------------------------------------------------------------------------------------|
+//  Page callback function for the menu item
+//  This just returns our $form
+//-------------------------------------------------------------------------------------------|
+
+  function csvImporter_pagecallback(){
+    $module_path = drupal_get_path('module', 'csvImporter');
+    
+    $form = drupal_get_form('csvImporter_form');
+    
+    $output = "<p>This tool will attempt to import CSV data";
+    $output .= drupal_render($form);
+    
+    return $output;
+  }
+function csvImporter_plotgraph(){
+      $content ='';
+        drupal_add_js(drupal_get_path('module', 'csvImporter') . '/js/highcharts.js');
+        drupal_add_js(drupal_get_path('module', 'csvImporter') . '/js/csvImporter.js');
+
+        // Charting
+        $id = 'mychart';
+        $settings = array(
+            'chart' => array(
+                'renderTo' => 'chart-' . $id,
+            ),
+            'xAxis' => array(
+                'categories' => array(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            ),
+            'title' => array(
+                'text' => 'Some title1',
+            ),
+            'series' => array(
+                array(
+                    'name' => 'Data label1',
+                    'data' => array(1, 3, 7, 5, 6, 8, 9, 2, 3, 6),
+                ),
+            ),
+            'credits' => array(
+                'enabled' => FALSE,
+            ),
+        );
+    $settings1 = array(
+        'chart' => array(
+            'renderTo' => 'chart-' . $id,
+        ),
+        'xAxis' => array(
+            'categories' => array(1, 2, 3, 4, 5, 6, 7, 8, 9),
+        ),
+        'title' => array(
+            'text' => 'Some title1',
+        ),
+        'series' => array(
+            array(
+                'name' => 'Data label1',
+                'data' => array(10, 30, 7.6, 5.0, 3, 2, 90, 12, 23, 46),
+            ),
+        ),
+        'credits' => array(
+            'enabled' => FALSE,
+        ),
+    );
+        drupal_add_js(array('csvImporter' => array('charts' => [$id => $settings])), 'setting');
+        drupal_add_js(array('csvImporter' => array('charts' => [$id => $settings1])), 'setting');
+        $content .= '<div id="chart-form-'. $id .'"><form> <select name="Countries">
+                <option value="double chocolate">India</option>
+                <option value="vanilla">US</option>
+                <option value="strawberry">Japan</option>
+                <option value="caramel">China</option>
+        </select></form></div>';
+        $content .= '<div id="chart-'. $id .'"></div>';
+        return $content;
+    }
+
+//-------------------------------------------------------------------------------------------|
+//  End page callback function for the menu item
+//-------------------------------------------------------------------------------------------|
+
+
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  Form builder, validate, and submit functions for the importer form
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+  function csvImporter_form() {
+    $form['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+  
+    $form['csvfile'] = array( 
+      '#title' => t('XLSX File'),
+      '#type'  => 'file',
+      '#description' => ($max_size = parse_size(ini_get('upload_max_filesize'))) ? t('Due to server restrictions, the <strong>maximum upload file size is !max_size</strong>. Files that exceed this size will be disregarded.', array('!max_size' => format_size($max_size))) : '',    
+    ) ;
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Commence Import'),
+    ) ;
+    $form['#validate'] = array(
+      'csvImporter_validate_fileupload',
+      'csvImporter_form_validate',
+    ) ;
+    return $form ;
+  }
+
+
+  function csvImporter_validate_fileupload(&$form, &$form_state) {
+    $validators = array(
+      'file_validate_extensions' => array( 'csv' ),
+    );
+    
+    if ( $file = file_save_upload('csvfile', $validators, "public://", FILE_EXISTS_REPLACE) ) {
+      $form_state['values']['csvupload'] = $file->destination;       
+    }
+    else {
+      form_set_error('csvImporter', t('Unable to copy upload file to !dest', array('!dest' => $file->destination)));
+    }      
+  }
+
+
+  function csvImporter_form_validate(&$form, &$form_state) {
+    if ( isset( $form_state['values']['csvupload'] ) ) {
+      if ( $handle = fopen($form_state['values']['csvupload'], 'r') ) {
+        $line_count = 1 ;
+        $first = TRUE ;
+        if ( $line = fgetcsv($handle, 4096) ) {
+          //-------------------------------------------------------------------------------------------|
+          //  This is where you can validate aspects of the file itself, like the number of columns
+          //-------------------------------------------------------------------------------------------|
+//            if(count($line) != 3){
+//              form_set_error('csvfile', t('This file has the incorrect number of columns. Expecting 3'));
+//            }
+          //-------------------------------------------------------------------------------------------|
+          //  End validating aspects of the CSV file
+          //-------------------------------------------------------------------------------------------|
+          
+          
+          
+        }
+        fclose($handle);
+      }
+      else {
+        form_set_error('csvfile', t('Unable to read uploaded file !filepath', array('!filepath' => $form_state['values']['csvupload'])));
+      }
+    }
+  }
+
+
+  function csvImporter_form_submit(&$form, &$form_state) {
+    $fields = '';
+    $batch = array(
+      'title' => t('Importing CSV ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'csvImporter_import_finished',
+    ) ;
+    if ( isset( $form_state['values']['csvupload'] ) ) {
+      if ( $handle = fopen($form_state['values']['csvupload'], 'r') ) {
+//        $batch['operations'] = array(
+//            array('_csvImporter_remember_filename', array($form_state['values']['csvupload']))
+//        ) ;
+         // $batch['operations'][] = array('_csvimport_remember_filename', array( $form_state['values']['csvupload'] ) ) ;
+        $line_count = 1 ;
+        $first = TRUE ;
+        $line = fgetcsv($handle, 4096);
+        if ($line['0'] === 'Geography Name') {
+            $fields=$line;
+        }
+        while ($line = fgetcsv($handle, 4096) ) {
+          /**
+           * we use base64_encode to ensure we don't overload the batch
+           * processor by stuffing complex objects into it
+           */
+//          $batch['operations'] = array(
+//              array('_csvImporter_import_line', array(array_map('base64_encode', $line)))
+//          );
+            $batch['operations'][] = array('_csvImporter_import_line', array(array_map('base64_encode', $line), $fields));
+        }
+        fclose($handle);
+      } // we caught this in csvImporter_form_validate()
+    } // we caught this in csvImporter_form_validate()
+    batch_set($batch);
+  }
+
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  End Form builder, validate, and submit functions for the importer form
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+
+
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  Batch API helpers
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+
+  function csvImporter_import_finished($success, $results, $operations) {
+    if ( !empty($results['failed_rows']) ) {
+      $dir  = file_directory_path() . '/csvImporter/' ;
+      if ( file_check_directory( $dir, FILE_CREATE_DIRECTORY ) ) {
+        $csv_filename = 'failed_rows-'. basename($results['uploaded_filename']); // we validated extension on upload
+        $csv_filepath = $dir .'/'. $csv_filename;
+        $targs = array(
+          '!csv_url' => l(check_plain($csv_filename), $csv_filepath),
+          '%csv_filename' => $csv_filename,
+          '%csv_filepath' => $csv_filepath,
+        ) ;
+        if ( $handle = fopen($csv_filepath, 'w+') ) {
+          foreach( $results['failed_rows'] as $failed_row ) {
+            fputcsv($handle, $failed_row);
+          }
+          fclose($handle);
+          drupal_set_message(t('Some rows failed to import. You may download a CSV of these rows: !csv_url', $targs), 'error');
+        }
+        else {
+          drupal_set_message(t('Some rows failed to import, but unable to write error CSV to %csv_filepath', $targs), 'error');
+        }
+      }
+      else {
+        drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', $targs), 'error');
+      }
+    }
+    return t('The CSV import has completed.');
+  }
+  
+  
+  function _csvImporter_remember_filename($filename, &$context) {
+    $context['results']['uploaded_filename'] = $filename;
+  }
+
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+//  End batch API helpers
+//-------------------------------------------------------------------------------------------|
+//-------------------------------------------------------------------------------------------|
+
+//-------------------------------------------------------------------------------------------|
+//  The important part, this is where we "do something" with an individual CSV line
+//-------------------------------------------------------------------------------------------|
+
+  function _csvImporter_import_line($line,$fields, &$context) {
+      
+    $context['results']['rows_imported']++;
+    $line = $cleaned_line = array_map('base64_decode', $line);
+    //  $line = $cleaned_line =  $line;
+
+    
+    //-------------------------------------------------------------------------------------------|
+    //  Give feedback to the importer about which operation we're preforming
+    //-------------------------------------------------------------------------------------------|
+      //Show the row count by default
+      $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+    // Node creation logic
+      global $user;
+      $i='';
+      $node = new stdClass();
+      $node->title = $line[0];
+      $node->type = "page";
+      node_object_prepare($node); // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+      $node->language = LANGUAGE_NONE; // Or e.g. 'en' if locale is enabled
+      $node->uid = $user->uid;
+      $node->status = 1; //(1 or 0): published or not
+      $node->promote = 0; //(1 or 0): promoted to front page
+      $node->comment = 1;
+//      $values = array(
+//          'field_name' => 'field_graphical_data',
+//          'field_graph_year' => array(
+//              LANGUAGE_NONE => array(array('value' => $fields[4])),
+//          ),
+//          'field_graph_units_sold' => array(
+//              LANGUAGE_NONE => array(array('value' => $line[4])),
+//          ),
+//      );
+//      $entity = entity_create('field_collection_item', $values);
+//      $entity->setHostEntity('node', $node);
+      for($i=4;$i<=54;$i++) {
+          $values = array(
+              'field_name' => 'field_graphical_data',
+              'field_graph_year' => array(
+                  LANGUAGE_NONE => array(array('value' => $fields[$i])),
+              ),
+              'field_graph_units_sold' => array(
+                  LANGUAGE_NONE => array(array('value' => $line[$i])),
+              ),
+          );
+          $entity = entity_create('field_collection_item', $values);
+          $entity->setHostEntity('node', $node);
+
+
+      }
+
+      $node = node_submit($node); // Prepare node for saving
+      node_save($node);
+      //Or, Provide some feedback about the row currently being processed
+      $context['message'] = t('Importing %title', array('%title' => $line[0]));
+    //-------------------------------------------------------------------------------------------|
+    //  End giving feedback to the importer
+    //-------------------------------------------------------------------------------------------|
+  
+    //-------------------------------------------------------------------------------------------|
+    //  This is where you would convert the line of the CSV file into a new object, be it a node, user, etc.
+    //-------------------------------------------------------------------------------------------|
+  
+      drupal_set_message("Imported node {$line[0]}");
+  
+    //-------------------------------------------------------------------------------------------|
+    //  End converting the line to a drupal object
+    //-------------------------------------------------------------------------------------------|
+    
+    //-------------------------------------------------------------------------------------------|
+    //  You can capture and report on failed lines by doing something like this
+    //-------------------------------------------------------------------------------------------|
+      if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
+        $context['results']['failed_rows'][] = $line ;
+      }
+    //-------------------------------------------------------------------------------------------|
+    //  End capturing and reporting on failed lines
+    //-------------------------------------------------------------------------------------------|
+  }
+
+//-------------------------------------------------------------------------------------------|
+//  End converting an individual line of the CSV into something new
+//-------------------------------------------------------------------------------------------|
+
+
+
+
+
+
+
+

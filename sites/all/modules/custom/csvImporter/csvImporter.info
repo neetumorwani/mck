@@ -1,0 +1,4 @@
+; $Id$
+name = CSV Importer Sample
+description = Sample CSV Importer Module
+core = 7.x

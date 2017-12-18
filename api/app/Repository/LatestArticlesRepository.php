@@ -22,12 +22,14 @@ class LatestArticlesRepository extends Repository
   public function getData() {
       $response = [];
       $nodes = DB::table('node as n')
+          ->where('type', 'news_and_articles')
           ->leftJoin('field_data_body as b', 'b.entity_id' , '=', 'n.nid')
           ->leftJoin('field_data_field_feed_image_link as il', 'il.entity_id' , '=', 'n.nid')
           ->leftJoin('field_data_field_feed_url_link as fl', 'fl.entity_id' , '=', 'n.nid')
           ->leftJoin('field_data_field_feed_news_source as fn', 'fn.entity_id' , '=', 'n.nid')
+          ->leftJoin('field_data_field_feed_api_publish_date_ as fpd', 'fpd.entity_id' , '=', 'n.nid')
           ->orderBy('n.created','asc')
-          ->get(array('n.nid as nid','n.title as title','b.body_value as body', 'il.field_feed_image_link_url as imagelink','fl.field_feed_url_link_url as feedlink','fn.field_feed_news_source_tid as newssource'));
+          ->get(array('n.nid as nid','n.title as title','b.body_value as body', 'il.field_feed_image_link_url as imagelink','fl.field_feed_url_link_url as feedlink','fn.field_feed_news_source_tid as newssource','fpd.field_feed_api_publish_date__value as publishdate'));
       foreach($nodes as $key => $node) {
           $response[$key]['nid'] = $node->nid;
           $response[$key]['title'] = $node->title;
@@ -35,6 +37,7 @@ class LatestArticlesRepository extends Repository
           $response[$key]['imagelink'] = $node->imagelink;
           $response[$key]['feedlink'] = $node->feedlink;
           $response[$key]['newssource'] = $this->getTermName($node->newssource);
+          $response[$key]['publishdate'] = $node->publishdate;
       }
       return $response;
   }
