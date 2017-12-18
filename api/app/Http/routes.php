@@ -11,6 +11,10 @@
 |
 */
 
-$app->get('/', function () use ($app) {
-    return $app->version();
+$app->group(['prefix' => APP_PATH_PREFIX, 'namespace' => 'App\Http\Controllers'], function($app)
+{
+  $app->get('/', function () use ($app) {
+      return $app->version();
+  });
+    $app->get('get-articles-data', 'LatestArticlesController@fetchNews');
 });

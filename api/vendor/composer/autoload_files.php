@@ -12,4 +12,6 @@ return array(
     'bd9634f2d41831496de0d3dfe4c94881' => $vendorDir . '/symfony/polyfill-php56/bootstrap.php',
     '253c157292f75eb38082b5acb06f3f01' => $vendorDir . '/nikic/fast-route/src/functions.php',
     'bee9632da3ca00a99623b9c35d0c4f8b' => $vendorDir . '/laravel/lumen-framework/src/helpers.php',
+    '306912dc7725e1b676ed96c4137dd3f5' => $baseDir . '/app/Support/Constant.php',
+    '4ea52020381b594e1dda01f05eef8a82' => $baseDir . '/app/Support/Helper.php',
 );

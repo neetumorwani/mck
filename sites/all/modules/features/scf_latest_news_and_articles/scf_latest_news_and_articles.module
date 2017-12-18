@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the SCF - Latest News and articles feature.
+ */
+
+include_once 'scf_latest_news_and_articles.features.inc';

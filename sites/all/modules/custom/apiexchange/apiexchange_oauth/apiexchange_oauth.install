@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function apiexchange_oauth_schema() {
+  $schema = array();
+
+  $schema['oauth_access_token'] = array(
+    'description' => 'The base table for api exchange access token module.',
+      'fields' => array(
+        'access_token' => array(
+          'description' => 'access token',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+      ),
+  );
+
+  return $schema;
+}

@@ -1,0 +1,230 @@
+<?php
+/**
+* @file
+* module for API Exchange.
+*
+*/
+
+
+
+/**
+* Implements hook_permission().
+*/
+function apiexchange_permission() {
+  return array(
+    'administer apiexchange' => array(
+      'title' => t('administer apiexchange'),
+      'description' => t('Admin of API Exchange.'),
+    ),
+  );
+}
+
+/**
+* Implements hook_menu().
+*/
+function apiexchange_menu() {
+  // Administration pages.
+  $items['admin/config/apiexchange'] = array(
+    'title' => 'API Exchange',
+    'description' => 'Administer API Exchange.',
+    'position' => 'left',
+    'weight' => -10,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('access administration pages'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/apiexchange/list'] = array(
+    'title' => 'API Exchange List',
+    'description' => 'Configure DrupalChat module.',
+    'page callback' => 'apiexchange_list_page',
+    'access arguments' => array('administer apiexchange'),
+  //  'page arguments' => array('apiexchange_list_page'),
+    'file' => 'apiexchange.admin.inc',
+    'weight' => 10,
+  );
+
+  $items['admin/config/apiexchange/configuration'] = array(
+    'title' => 'API Common configuration',
+    'description' => 'API Common configuration.',
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array('administer apiexchange'),
+    'page arguments' => array('apiexchange_settings_form'),
+    'file' => 'apiexchange.admin.inc',
+    'weight' => 10,
+  );
+  $items['admin/config/apiexchange/entity/add'] = array(
+    'title' => 'Add New API',
+    'description' => 'Add new api for apiexchange.',
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array('administer apiexchange'),
+    'page arguments' => array('apiexchange_entity_form'),
+    'file' => 'apiexchange.admin.inc',
+    'weight' => 10,
+  );
+  $items['admin/config/apiexchange/entity/%apiexchange'] = array(
+    'title' => 'Edit API',
+    'description' => 'Edit existing api for apiexchange.',
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array('administer apiexchange'),
+    'page arguments' => array('apiexchange_entity_form', 4),
+    'file' => 'apiexchange.admin.inc',
+    'weight' => 10,
+  );
+   return $items;
+ }
+
+
+
+ /**
+ * Implements hook_flush_caches().
+ */
+function apiexchange_flush_caches() {
+  // Clear static caches.
+  if (db_table_exists('cache_apiexchange')) {
+    return array('cache_apiexchange');
+  }
+}
+
+/**
+ * Loads a API from the database.
+ *
+ * @param $key
+ *   The key of API.
+ *
+ * @return
+ *   A fully-populated API array, or FALSE if the APIs is not found.
+ */
+function apiexchange_load($key = NULL) {
+  $apis = &drupal_static(__FUNCTION__);
+  $api =  FALSE;
+  if (isset($apis[$key])) {
+    return $apis[$key];
+  }
+  //check cache is set or not?
+  $cid = 'api-' . $key;
+  if ($cache = cache_get($cid, 'cache_apiexchange')) {
+    $api = $cache->data;
+    $apis[$key] = $api;
+    return $api;
+  }
+
+  //Api load from database
+  $query = db_select('apiexchange', 'nt')
+  ->fields('nt')->condition('id', $key);
+
+  foreach ($query->execute() as $api_object) {
+    $apis[$api_object->id] = (array) $api_object;
+  }
+
+  if ($apis[$key]) {
+    //Invoking a hook_apiexchange_load
+    foreach (module_implements('apiexchange_load') as $module) {
+      $function = $module . '_apiexchange_load';
+      // and can pass each argument as reference determined
+      // by the function declaration
+      $function($apis[$key]);
+    }
+    cache_set($cid, $apis[$key], 'cache_apiexchange');
+  }
+
+
+  return isset($apis[$key])? $apis[$key] :FALSE;
+}
+
+/**
+ * Load add Apis.
+ *
+ */
+function apiexchange_load_all($full = FALSE) {
+  $apis = array();
+  //Api load from database
+  $query = db_select('apiexchange', 'nt')
+  ->fields('nt', array('id', 'name'));
+
+  foreach ($query->execute() as $api_object) {
+    $apis[$api_object->id] = $full? apiexchange_load($api_object->id) : (array) $api_object;
+  }
+  return $apis;
+}
+
+
+/*
+ * Check API exists or not
+ * @param $key
+ *   The key of API.
+ * @return
+ *   TRUE, or FALSE if the APIs is not found.
+ */
+function apiexchange_entity_exist ($key) {
+  $api = apiexchange_load($key) ;
+  return $api ? TRUE : FALSE;
+}
+/**
+ *
+ *Call api.
+ *TODO: documentation.
+ *
+ */
+
+function apiexchange($api,  $data = array(), $raw  = FALSE) {
+  //TODO: add custom header and after before request
+  $url = variable_get('apiexchange_url' , '' ) . $api['url'];
+ 
+
+  if (module_exists('apiexchange_oauth')) {
+    $data = apiexchange_oauth_access_token_validate($url, $api['type'], $api['return_type']);
+    if ($data !== FALSE) {
+      // return array ('result' => $data, 'code' =>  $info['http_code'], 'info' => $info);
+      return $data;
+    }
+    else {
+      return FALSE;
+    }
+  }
+  else {
+    return FALSE;
+  }
+
+}
+
+/**
+ * callback for output render.
+ * TODO: full document
+ *
+ */
+function apiexchange_output_render($content, $type = 'json') {
+  if ($content) {
+    if ($type == 'json') {
+      $array = json_decode($content,TRUE);
+    }
+    else {
+      $xml = simplexml_load_string($content);
+      $json = json_encode((array)$xml);
+      $array = json_decode($json,TRUE);
+    }
+    return $array;
+  }
+  return array();
+}
+
+/**
+ * Implement hook_feeds_plugins().
+ */
+function apiexchange_feeds_plugins() {
+  $info = array();
+  $info['apiexchange'] = array(
+    'name' => 'Mckinsey API Exchange',
+    'description' => 'Fetch data from  Mckinsey API Exchange.',
+    'help' => 'Mckinsey API Exchange.',
+    'handler' => array(
+      'parent' => 'FeedsFetcher',
+      'class' => 'apiExchange',
+      'file' => 'apiexchange.feeds.inc',
+      'path' => drupal_get_path('module', 'apiexchange'), // Feeds will look for MyFetcher.inc in the my_module directory.
+    ),
+  );
+
+  return $info;
+}

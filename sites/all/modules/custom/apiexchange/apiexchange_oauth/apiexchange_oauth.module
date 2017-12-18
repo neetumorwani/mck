@@ -1,0 +1,165 @@
+<?php
+
+/**
+* @file
+* module for API Exchange oauth.
+*
+*/
+
+define("EXPERTSEARCH_DEFAULT_DEBUG_MODE", "");
+
+/**
+ * Implements hook_menu().
+ */
+function apiexchange_oauth_menu() {
+  // Administration pages.
+  $items['admin/config/apiexchange/oauth'] = array(
+    'title' => 'API Oauth',
+    'description' => 'API Oauth comman configuration.',
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array('administer apiexchange'),
+    'page arguments' => array('apiexchange_oauth_settings_form'),
+    'file' => 'apiexchange_oauth.admin.inc',
+  );
+
+  return $items;
+ }
+
+/**
+ * To check if access token is valid.
+ * @param string api_url
+ *  URL of the api to get data.
+ * @param string request_type
+ *  Type of request; GET/POST
+ * @param string response type
+ *  Return format of the data.
+ *
+ * @return data array based on response type.
+ */
+function apiexchange_oauth_access_token_validate($api_url, $request_type = 'GET', $response_type = 'json', $access_token = NULL, $no_format = NULL) {
+
+  // Set default result
+  $result = FALSE;
+
+  if ($access_token == NULL) {
+    $access_token = &drupal_static(__FUNCTION__);
+    if (!isset($access_token)) {
+      $var = db_select('oauth_access_token', 'at')
+          ->fields('at', array('access_token'))
+          ->execute()
+          ->fetchField();
+      //$var = variable_get('apiexchange_oauth_access_token');
+      if (!empty($var)) {
+        $access_token = $var;
+      }
+      else {
+        // Delete current access tokens if any & get new.
+        $result = db_truncate('oauth_access_token')->execute();
+        $access_object = new OauthAPIRequest();
+        $access_token = $access_object->execute();
+        if (empty($access_token)) {
+          return FALSE;
+        }
+      }
+    }
+
+  }
+
+  // API URL to be validated and always a get request.
+  $url_arr = parse_url($api_url);
+  if (!empty($url_arr['query'])) {
+    $request_url = $api_url. '&access_token='. $access_token;
+  }
+  else {
+    $options = array();
+    $options['absolute'] = TRUE;
+    $arguments = array(
+      'access_token' => $access_token,
+    );
+    $options['query'] = $arguments;
+    $request_url = url($api_url, $options);
+  }
+
+  // Check request url
+  $debug_mode = variable_get('apiexchange_oauth_debug_mode', EXPERTSEARCH_DEFAULT_DEBUG_MODE);
+  if ($debug_mode) {
+      drupal_set_message(t('Request URL: !url', array('!url' => $request_url)));
+  }
+
+  // Perform an HTTP request.
+  $op = array();
+  $op['method'] = $request_type;
+  $op['timeout'] = '5';
+  $response = (module_exists('chr')) ? chr_curl_http_request($request_url, $op) : drupal_http_request($request_url, $op);
+  $recursion_counter = 0;
+
+  if ($response->error = 'request timed out' && $response->code == '-1') {
+    watchdog('apiexchange_oauth', 'Request timed out !code received.', array('!code' => $response->code), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  if ($response->code >= 500) {
+    $error_code = $response->data;
+    $error_code_json = json_decode($error_code, TRUE);
+    return $error_code_json;
+  }
+
+  if ($response->code == 404) {
+    watchdog('apiexchange_oauth', 'URL not found: !code received.', array('!code' => $response->code), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+
+  if ($response->code == 401 || $response->code == 400 || $response->code == 403) {
+    // Regenerate token since there is some issue and log the error code in
+    // watchdog.
+    watchdog('apiexchange_oauth', 'Token validation error: !code received.', array('!code' => $response->code), WATCHDOG_ERROR);
+    // Delete current access tokens & get new.
+    $result = db_truncate('oauth_access_token')->execute();
+    $access_object = new OauthAPIRequest();
+    $access_token = $access_object->execute();
+    if ($recursion_counter > 0) {
+      // I am again throwing error.
+      watchdog('apiexchange_oauth', 'Token Issue again: !code received.', array('!code' => $response->code), WATCHDOG_ERROR);
+      return FALSE;
+    }
+    // Call me again.
+    apiexchange_oauth_access_token_validate($api_url, $request_type, $response_type, $access_token);
+    $recursion_counter++;
+
+  }
+  else {
+    if ($no_format == TRUE) {
+      $result = $response->data;
+    }
+    else {
+      $content = $response->data;
+      if ($response_type == 'json') {
+        $result = json_decode($content,TRUE);
+      }
+      else {
+        $xml = simplexml_load_string($content);
+        $json = json_encode((array)$xml);
+        $result = json_decode($json,TRUE);
+      }
+    }
+  }
+
+  return $result;
+}
+//generates the token
+function apiexchange_oauth_get_token(){
+        try
+		{
+			// Delete current access tokens if any & get new.
+			$result = db_truncate('oauth_access_token')->execute();
+			$access_object = new OauthAPIRequest();
+			$access_token = $access_object->execute();
+			return $access_token;
+		}
+		catch(Exception $ex){
+			
+			  watchdog('apiexchange_oauth', 'Token generation error: !code received.', array('!code' => 'error while generating token'), WATCHDOG_ERROR);
+  
+		}
+}

@@ -1,0 +1,6 @@
+name = Mckinsey API exchange oauth2
+description = This module generates/updates access token to be used with apix.
+core = 7.x
+package = custom
+
+files[] = oauth.api.inc

@@ -1,0 +1,5 @@
+name = Mckinsey API exchange
+version = 7.x-1.0
+description = This module allows to consume apis of mckinsey API exchange. 
+package = custom
+core = 7.x
